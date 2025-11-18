@@ -1,9 +1,9 @@
 {
-  "name": "react-todo-app",
+  "name": "pave-life",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://create-alt.github.io/react-todo-app",
+  "homepage": "https://create-alt.github.io/PaveLife",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
