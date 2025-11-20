@@ -2,47 +2,33 @@
 
 import React, { useState } from 'react'; 
 import type { LifeData, AgeEvent, FuturePath } from '../types';
-import { AddEventForm } from './AddEventForm.tsx'; // ★ 分離したフォーム
-import { PathEditPanel } from './PathEditPanel.tsx'; // ★ 新しく作成したファイルをインポート
+import { AddEventForm } from './AddEventForm.tsx';
+import { PathEditPanel } from './PathEditPanel.tsx'; 
+// ★ 追加: 道詳細モーダルをインポート
+import { PathDetailModal } from './PathDetailModal.tsx';
 
-// ★ LifePath メインコンポーネント
 interface Props {
   lifeData: LifeData;
   onAgeEventClick: (event: AgeEvent) => void;
-  // イベント編集
   isEditing: boolean;
   onAddEvent: (age: number, title: string, pathId: string | null) => void;
   onDeleteEvent: (eventId: string) => void;
   onUpdateEvent: (eventId: string, newAge: number, newTitle: string) => void;
-  // 道編集
   isPathEditing: boolean;
   onAddFuturePath: (title: string, memos: string) => void;
   onDeleteFuturePath: (pathId: string) => void;
   onUpdateFuturePath: (pathId: string, newTitle: string, newMemos: string) => void;
 }
 
-// ★ LifePath メインコンポーネント
-interface Props {
-  lifeData: LifeData;
-  onAgeEventClick: (event: AgeEvent) => void;
-  // イベント編集
-  isEditing: boolean;
-  onAddEvent: (age: number, title: string, pathId: string | null) => void;
-  onDeleteEvent: (eventId: string) => void;
-  onUpdateEvent: (eventId: string, newAge: number, newTitle: string) => void;
-  // 道編集
-  isPathEditing: boolean;
-  onAddFuturePath: (title: string, memos: string) => void;
-  onDeleteFuturePath: (pathId: string) => void;
-  onUpdateFuturePath: (pathId: string, newTitle: string, newMemos: string) => void;
-}
-
+// --- 定数 ---
 const PATH_WIDTH = 10; 
-const PATH_GAP = 80;   
+const PATH_GAP = 200; 
 const TOTAL_PATH_WIDTH = PATH_WIDTH + PATH_GAP; 
 const YEAR_HEIGHT_PX = 12.5; 
 const MIN_EVENT_GAP_PX = 40; 
-
+const BRANCH_OFFSET_PX = 60; 
+const SIGN_WIDTH = 140;
+const SIGN_HEIGHT = 70;
 
 export const LifePath: React.FC<Props> = ({ 
   lifeData, 
@@ -60,56 +46,57 @@ export const LifePath: React.FC<Props> = ({
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({ age: 0, title: '' });
 
+  // ★ 追加: 道詳細モーダル用のstate
+  const [selectedPath, setSelectedPath] = useState<FuturePath | null>(null);
+
   const { currentAge, lifeExpectancy, events, futurePaths } = lifeData;
   
-  // ★★★ 要望1: Y座標の計算ロジックを修正 ★★★
+  // --- Y座標の計算 ---
   const sortedEvents = [...events].sort((a, b) => a.age - b.age);
   const eventYCoordinates = new Map<string, number>();
-  
-  // ★ 道(track)ごとに、最後のY座標を記憶するMap
-  // キー: pathId (null含む), 値: Y座標
   const lastEventYByPath = new Map<string | null, number>();
 
-  for (const event of sortedEvents) {
-    // 1. このイベントが所属する「道（track）」を決定する
-    //    現在年齢以下のイベントは、強制的にメインの道(null)扱い
-    const trackKey = event.age <= currentAge ? null : event.pathId;
+  const pastEvents = sortedEvents.filter(e => e.age <= currentAge);
+  let lastPastY = -MIN_EVENT_GAP_PX;
 
-    // 2. この「道（track）」の、直前のイベントY座標を取得
-    const lastEventY = lastEventYByPath.get(trackKey) ?? -MIN_EVENT_GAP_PX;
-
-    // 3. この道の最小間隔を考慮してY座標を計算
+  for (const event of pastEvents) {
     const eventY_raw = event.age * YEAR_HEIGHT_PX;
-    const calculatedY = Math.max(eventY_raw, lastEventY + MIN_EVENT_GAP_PX);
-    
-    // 4. 計算結果を保存
+    const calculatedY = Math.max(eventY_raw, lastPastY + MIN_EVENT_GAP_PX);
     eventYCoordinates.set(event.id, calculatedY);
-    
-    // 5. この「道（track）」の最後のY座標を更新
+    lastPastY = calculatedY;
+    lastEventYByPath.set(null, calculatedY);
+  }
+
+  const currentAgeY_raw = currentAge * YEAR_HEIGHT_PX;
+  const currentAgeY_visual = Math.max(currentAgeY_raw, lastPastY);
+  const branchStartY = currentAgeY_visual + BRANCH_OFFSET_PX;
+  const futureEventStartY = branchStartY + 20 + SIGN_HEIGHT + 30;
+
+  const futureEvents = sortedEvents.filter(e => e.age > currentAge);
+
+  for (const event of futureEvents) {
+    const trackKey = event.pathId;
+    const initialY = (trackKey !== null) ? futureEventStartY - MIN_EVENT_GAP_PX : lastPastY;
+    const lastY = lastEventYByPath.get(trackKey) ?? initialY;
+    const eventY_raw = event.age * YEAR_HEIGHT_PX;
+    let calculatedY = Math.max(eventY_raw, lastY + MIN_EVENT_GAP_PX);
+    if (trackKey !== null) {
+      calculatedY = Math.max(calculatedY, futureEventStartY);
+    }
+    eventYCoordinates.set(event.id, calculatedY);
     lastEventYByPath.set(trackKey, calculatedY);
   }
 
-  // ★ 「過去の道」（実線）の終点を計算
-  //    メインの道(null)の最後のY座標、または現在年齢のY座標の、大きい方
-  const lastPastEventY = lastEventYByPath.get(null) ?? 0;
-  const currentAgeY_raw = currentAge * YEAR_HEIGHT_PX;
-  const currentAgeY_visual = Math.max(currentAgeY_raw, lastPastEventY);
-
-  // ★ 全体の高さを計算
-  //    全ての道の中で、最もY座標が大きい値を探す
   const maxCalculatedY = Math.max(0, ...Array.from(lastEventYByPath.values()));
-  
   const maxAgeInEvents = Math.max(...events.map(e => e.age), 0);
   const effectiveLifeExpectancy = Math.max(lifeExpectancy, maxAgeInEvents, currentAge);
   const rawViewHeight = effectiveLifeExpectancy * YEAR_HEIGHT_PX;
-  
-  const viewHeight = Math.max(rawViewHeight, maxCalculatedY) + MIN_EVENT_GAP_PX;
-  // ★★★ Y座標ロジック 修正ここまで ★★★
+  const viewHeight = Math.max(rawViewHeight, maxCalculatedY, futureEventStartY + 100) + MIN_EVENT_GAP_PX; 
 
 
-  // --- X軸の計算 (変更なし) ---
+  // --- X軸の計算 ---
   const numPaths = futurePaths.length;
-  const viewWidth = Math.max(300, (numPaths + 1) * TOTAL_PATH_WIDTH);
+  const viewWidth = Math.max(360, (numPaths + 1) * TOTAL_PATH_WIDTH + 100); 
   const centerX = viewWidth / 2; 
 
   const getPathX = (pathIndex: number) => {
@@ -117,7 +104,6 @@ export const LifePath: React.FC<Props> = ({
     return centerX + (pathIndex - offset) * TOTAL_PATH_WIDTH;
   };
   
-  // ★ getEventX は、イベントが正しい道に配置されるよう、このまま（修正済み）
   const getEventX = (event: AgeEvent) => {
     if (event.pathId === null || event.age <= currentAge) {
       return centerX; 
@@ -128,9 +114,8 @@ export const LifePath: React.FC<Props> = ({
     }
     return getPathX(pathIndex); 
   };
-  // --- X軸の計算 (ここまで) ---
 
-  // --- 編集ハンドラ (変更なし) ---
+  // --- 編集ハンドラ ---
   const handleStartEditing = (event: AgeEvent) => {
     setEditingEventId(event.id);
     setEditFormData({ age: event.age, title: event.title });
@@ -147,12 +132,11 @@ export const LifePath: React.FC<Props> = ({
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: name === 'age' ? Number(value) : value }));
   };
-  // --- 編集ハンドラ (ここまで) ---
 
   return (
-    <div className="w-full max-w-md">
+    // ★ 修正: max-w-md を削除して w-full に。これにより画面幅全体を使えるようになる
+    <div className="w-full">
       
-      {/* イベント編集フォーム */}
       {isEditing && (
         <AddEventForm 
           onAddEvent={onAddEvent}
@@ -161,7 +145,6 @@ export const LifePath: React.FC<Props> = ({
         />
       )}
       
-      {/* ★ 道編集パネル (インポートしたコンポーネントを呼び出す) */}
       {isPathEditing && (
         <PathEditPanel 
           futurePaths={futurePaths}
@@ -170,13 +153,20 @@ export const LifePath: React.FC<Props> = ({
           onUpdateFuturePath={onUpdateFuturePath}
         />
       )}
+
+      {/* ★ 追加: 道詳細モーダル */}
+      <PathDetailModal 
+        isOpen={selectedPath !== null}
+        onClose={() => setSelectedPath(null)}
+        path={selectedPath}
+        onUpdateFuturePath={onUpdateFuturePath}
+        onDeleteFuturePath={onDeleteFuturePath}
+      />
       
-      {/* 道の描画エリア */}
       <div 
-        className="relative bg-gray-100 overflow-hidden mx-auto border border-gray-300 overflow-x-auto"
+        className="relative bg-gray-100 overflow-hidden mx-auto border border-gray-300 overflow-x-auto shadow-inner rounded-lg"
         style={{ width: viewWidth, height: viewHeight }} 
       >
-        {/* SVG描画 (変更なし) */}
         <svg 
           width={viewWidth} 
           height={viewHeight} 
@@ -184,58 +174,77 @@ export const LifePath: React.FC<Props> = ({
         >
           {/* 1. 過去の道 */}
           <path 
-            d={`M ${centerX},0 V ${currentAgeY_visual}`} 
-            stroke="black" 
+            d={`M ${centerX},0 V ${branchStartY}`} 
+            stroke="#333" 
             strokeWidth={PATH_WIDTH} 
             fill="none" 
+            strokeLinecap="round"
           />
+          
           {/* 2. 未来の道 (分岐なし) */}
           {numPaths === 0 && (
             <path 
-              d={`M ${centerX},${currentAgeY_visual} V ${viewHeight}`}
-              stroke="black" 
+              d={`M ${centerX},${branchStartY} V ${viewHeight}`}
+              stroke="#999" 
               strokeWidth={PATH_WIDTH} 
-              strokeDasharray="10 10" 
+              strokeDasharray="15 15" 
               fill="none" 
             />
           )}
-          {/* 3. 直角に分岐する道を描画 */}
+
+          {/* 3. 分岐道と看板 */}
           {futurePaths.map((path, index) => {
             const futurePathX = getPathX(index); 
             return (
               <g key={path.id}>
-                <text 
-                  x={futurePathX} 
-                  y={currentAgeY_visual + 25} 
-                  textAnchor="middle" 
-                  className="fill-gray-600 text-sm cursor-pointer" 
-                  onClick={() => !isEditing && !isPathEditing && alert(`道: ${path.title}\nメモ: ${path.memos}`)}
-                >
-                  {path.title}
-                </text>
                 <path
                   d={
-                    `M ${centerX},${currentAgeY_visual} ` + 
+                    `M ${centerX},${branchStartY} ` + 
                     `H ${futurePathX} ` + 
                     `V ${viewHeight}`
                   } 
-                  stroke="gray" 
+                  stroke="#9CA3AF" 
                   strokeWidth={PATH_WIDTH} 
-                  strokeDasharray="10 10" 
+                  strokeDasharray="12 12" 
                   fill="none" 
-                  className="hover:stroke-blue-500" 
+                  className="transition-all duration-300 hover:stroke-blue-400"
+                />
+
+                <foreignObject 
+                  x={futurePathX - SIGN_WIDTH / 2} 
+                  y={branchStartY + 20} 
+                  width={SIGN_WIDTH} 
+                  height={SIGN_HEIGHT}
+                >
+                  <div 
+                    className={`w-full h-full bg-white border-l-4 ${index % 2 === 0 ? 'border-blue-500' : 'border-purple-500'} rounded shadow-md p-2 flex flex-col justify-center cursor-pointer hover:bg-blue-50 transition-colors`}
+                    // ★ 修正: クリック時に編集モーダルを開く (通常モード時)
+                    onClick={() => !isEditing && !isPathEditing && setSelectedPath(path)}
+                    title={path.memos}
+                  >
+                    <div className="font-bold text-gray-800 text-sm text-center leading-tight truncate">
+                      {path.title}
+                    </div>
+                    <div className="text-[10px] text-gray-500 text-center mt-1 line-clamp-2 leading-tight">
+                      {path.memos || '(メモなし)'}
+                    </div>
+                  </div>
+                </foreignObject>
+
+                <line 
+                  x1={futurePathX} y1={branchStartY} 
+                  x2={futurePathX} y2={branchStartY + 20} 
+                  stroke="#9CA3AF" strokeWidth="2"
                 />
               </g>
             );
           })}
         </svg>
 
-        {/* 4. 年齢イベントボタンの配置 (変更なし) */}
+        {/* 4. イベントボタン */}
         {sortedEvents.map((event) => {
-          
           const calculatedY = eventYCoordinates.get(event.id) || 0; 
           const eventX = getEventX(event); 
-
           const isCurrentlyEditingThis = isEditing && editingEventId === event.id;
 
           return (
@@ -250,7 +259,7 @@ export const LifePath: React.FC<Props> = ({
               }} 
             >
               {isCurrentlyEditingThis ? (
-                // (A) 編集フォーム
+                // 編集フォーム
                 <div className="p-2 bg-white border-2 border-blue-500 rounded shadow-lg">
                   <input type="number" name="age" value={editFormData.age} onChange={handleEditFormChange} className="w-16 p-1 border rounded mb-1 text-sm"/>
                   <input type="text" name="title" value={editFormData.title} onChange={handleEditFormChange} className="w-full p-1 border rounded mb-2 text-sm"/>
@@ -260,31 +269,32 @@ export const LifePath: React.FC<Props> = ({
                   </div>
                 </div>
               ) : (
-                // (B) 通常ボタン
+                // 通常ボタン
                 <div className="flex items-center"> 
                   <button
-                    className={`bg-blue-500 text-white 
-                               font-bold py-1 px-3 rounded-full text-sm 
-                               ${isEditing || isPathEditing ? 'cursor-default' : 'hover:bg-blue-700'} 
-                               whitespace-nowrap overflow-hidden text-ellipsis max-w-[130px]`} 
+                    className={`text-white font-bold py-1 px-3 rounded-full text-sm shadow-md border border-white
+                               ${event.age > currentAge ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}
+                               ${isEditing || isPathEditing ? 'cursor-default' : ''} 
+                               whitespace-nowrap overflow-hidden text-ellipsis max-w-[140px] transition-transform hover:scale-105`} 
                     title={`${event.age}歳: ${event.title}`} 
                     onClick={() => !isEditing && !isPathEditing && onAgeEventClick(event)}
                   >
-                    {event.age}歳: {event.title}
+                    <span className="mr-1 opacity-80 text-xs">{event.age}歳:</span>
+                    {event.title}
                   </button>
-                  {/* 編集ボタン */}
+
                   {isEditing && (
-                    <div className="ml-2 flex gap-1 flex-shrink-0">
-                      <button onClick={() => handleStartEditing(event)} className="p-1 bg-yellow-400 rounded text-xs hover:bg-yellow-500">編集</button>
+                    <div className="ml-2 flex gap-1 flex-shrink-0 animate-fade-in">
+                      <button onClick={() => handleStartEditing(event)} className="p-1 bg-yellow-400 rounded text-xs hover:bg-yellow-500 shadow">✏️</button>
                       <button 
                         onClick={() => {
-                          if (window.confirm(`「${event.title}」を削除しますか？\n(関連するTodoもすべて削除されます)`)) {
+                          if (window.confirm(`「${event.title}」を削除しますか？`)) {
                             onDeleteEvent(event.id);
                           }
                         }}
-                        className="p-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                        className="p-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 shadow"
                       >
-                        削除
+                        🗑️
                       </button>
                     </div>
                   )}
@@ -293,8 +303,7 @@ export const LifePath: React.FC<Props> = ({
             </div>
           );
         })}
-        
-      </div> {/* 道の描画エリアの閉じタグ */}
-    </div> 
+      </div>
+    </div>
   );
 };

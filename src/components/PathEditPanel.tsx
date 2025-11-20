@@ -51,56 +51,67 @@ export const PathEditPanel: React.FC<Props> = ({
   };
 
   return (
-    <div className="mb-4 p-4 bg-gray-200 rounded-lg shadow">
-      <h3 className="text-lg font-semibold mb-2">道（将来）の編集</h3>
+    // ★ 修正: カード風のスタイリング
+    <div className="mb-8 p-6 bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-lg mx-auto">
+      <h3 className="text-xl font-bold mb-4 text-red-800 flex items-center gap-2">
+        <span className="text-2xl">🛣️</span> 将来の道を編集
+      </h3>
       
       {/* 既存の道をリスト */}
-      <div className="space-y-2 mb-4">
+      <div className="space-y-3 mb-6">
+        {futurePaths.length === 0 && (
+          <p className="text-gray-400 text-sm text-center py-2">将来の道はまだありません</p>
+        )}
+        
         {futurePaths.map(path => (
-          <div key={path.id} className="p-2 bg-gray-50 rounded shadow-sm">
+          <div key={path.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100 transition-all hover:shadow-md">
             {editingPathId === path.id ? (
-              // --- ★ 編集モード ---
-              <div className="space-y-2">
-                <input 
-                  type="text" 
-                  value={editPathTitle} 
-                  onChange={(e) => setEditPathTitle(e.target.value)}
-                  className="w-full p-1 border rounded" 
-                  placeholder="道の名前"
-                />
-                <input 
-                  type="text" 
-                  value={editPathMemos}
-                  onChange={(e) => setEditPathMemos(e.target.value)}
-                  className="w-full p-1 border rounded" 
-                  placeholder="メモ"
-                />
-                <div className="flex justify-end gap-2">
-                  <button onClick={handleCancelEdit} className="text-xs text-gray-600 hover:text-gray-900">キャンセル</button>
-                  <button onClick={handleUpdate} className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-700">保存</button>
+              // --- 編集モード ---
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">道の名前</label>
+                  <input 
+                    type="text" 
+                    value={editPathTitle} 
+                    onChange={(e) => setEditPathTitle(e.target.value)}
+                    className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:outline-none" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">メモ</label>
+                  <input 
+                    type="text" 
+                    value={editPathMemos}
+                    onChange={(e) => setEditPathMemos(e.target.value)}
+                    className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:outline-none" 
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={handleCancelEdit} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg">キャンセル</button>
+                  <button onClick={handleUpdate} className="px-3 py-1.5 text-sm bg-green-500 text-white rounded-lg shadow hover:bg-green-600">保存</button>
                 </div>
               </div>
             ) : (
-              // --- ★ 通常表示 ---
+              // --- 通常表示 ---
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold">{path.title}</p>
-                  <p className="text-sm text-gray-600">{path.memos || '(メモなし)'}</p>
+                  <p className="font-bold text-gray-800">{path.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{path.memos || '(メモなし)'}</p>
                 </div>
-                <div className="flex-shrink-0 flex gap-1">
+                <div className="flex-shrink-0 flex gap-2">
                   <button 
                     onClick={() => handleStartEdit(path)}
-                    className="bg-yellow-400 px-2 py-1 rounded text-xs hover:bg-yellow-500"
+                    className="px-3 py-1.5 bg-yellow-400 text-white font-bold rounded-lg text-xs shadow hover:bg-yellow-500 transition-transform transform active:scale-95"
                   >
                     編集
                   </button>
                   <button 
                     onClick={() => {
-                      if (window.confirm(`「${path.title}」を削除しますか？\n(この道に関連する「予定」もすべて削除されます)`)) { 
+                      if (window.confirm(`道「${path.title}」を削除しますか？\n(この道に関連する「予定」もすべて削除されます)`)) {
                         onDeleteFuturePath(path.id);
                       }
                     }}
-                    className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                    className="px-3 py-1.5 bg-red-400 text-white font-bold rounded-lg text-xs shadow hover:bg-red-500 transition-transform transform active:scale-95"
                   >
                     削除
                   </button>
@@ -112,25 +123,30 @@ export const PathEditPanel: React.FC<Props> = ({
       </div>
 
       {/* 新しい道を追加するフォーム */}
-      <h4 className="text-md font-semibold mb-2 border-t pt-2">新しい道を追加</h4>
-      <div className="flex flex-col gap-2">
-        <input 
-          type="text" 
-          value={newPathTitle}
-          onChange={(e) => setNewPathTitle(e.target.value)}
-          className="p-2 border rounded" 
-          placeholder="新しい道の名前 (例: Cの道)"
-        />
-        <input 
-          type="text" 
-          value={newPathMemos}
-          onChange={(e) => setNewPathMemos(e.target.value)}
-          className="p-2 border rounded" 
-          placeholder="メモ (任意)"
-        />
-        <button onClick={handleAdd} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
-          道を追加
-        </button>
+      <div className="border-t border-gray-200 pt-4">
+        <h4 className="text-sm font-bold text-gray-500 mb-3">＋ 新しい道を追加</h4>
+        <div className="flex flex-col gap-3">
+          <input 
+            type="text" 
+            value={newPathTitle}
+            onChange={(e) => setNewPathTitle(e.target.value)}
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:outline-none transition-all" 
+            placeholder="道の名前 (例: 起業ルート)"
+          />
+          <input 
+            type="text" 
+            value={newPathMemos}
+            onChange={(e) => setNewPathMemos(e.target.value)}
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:outline-none transition-all" 
+            placeholder="メモ (任意)"
+          />
+          <button 
+            onClick={handleAdd} 
+            className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-xl shadow-md transition-transform transform active:scale-95"
+          >
+            道を追加
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -31,51 +31,67 @@ export const AddEventForm: React.FC<Props> = ({ onAddEvent, futurePaths, current
   const showPathSelector = age > currentAge;
 
   return (
-    <form onSubmit={handleSubmit} className="mb-4 p-4 bg-gray-200 rounded-lg shadow">
-      <h3 className="text-lg font-semibold mb-2">新しいイベントを追加</h3>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <input 
-          type="number" 
-          value={age}
-          onChange={(e) => setAge(Number(e.target.value))}
-          min="0"
-          className="w-full sm:w-20 p-2 border rounded"
-          placeholder="年齢"
-        />
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="flex-grow p-2 border rounded"
-          placeholder="イベント名（例: 就職）"
-        />
-        <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
-          追加
+    <form 
+      onSubmit={handleSubmit} 
+      className="mb-8 p-6 bg-white rounded-2xl shadow-xl border border-gray-100 max-w-3xl md:w-full mx-auto"
+    >
+      <h3 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-2">
+        <span>📅</span> イベントを追加
+      </h3>
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-4">
+          <div className="w-24 flex-shrink-0">
+            <label className="block text-xs font-bold text-gray-500 mb-1">年齢</label>
+            <input 
+              type="number" 
+              // value={age}
+              onChange={(e) => setAge(Number(e.target.value))}
+              min="0"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all font-bold text-center"
+              placeholder=""
+            />
+          </div>
+          
+          <div className="flex-grow">
+            <label className="block text-xs font-bold text-gray-500 mb-1">イベント名</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all"
+              placeholder="例: 就職、結婚、海外移住..."
+            />
+          </div>
+        </div>
+
+        {showPathSelector && (
+          <div>
+            <label htmlFor="path-select" className="block text-xs font-bold text-gray-500 mb-1">
+              配置する道 (ルート)
+            </label>
+            <select
+              id="path-select"
+              value={selectedPathId === null ? 'null' : selectedPathId}
+              onChange={(e) => setSelectedPathId(e.target.value === 'null' ? null : e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none transition-all cursor-pointer"
+            >
+              <option value="null">🛣️ メインの道 (〜{currentAge}歳)</option>
+              {futurePaths.map(path => (
+                <option key={path.id} value={path.id}>
+                  🔀 {path.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          className="py-1 px-5 bg-sky-500 rounded-2xl text-white font-black"
+        >
+          追加する
         </button>
       </div>
-      
-      {/* ★ 要望2: 将来の道を選択するドロップダウン */}
-      {showPathSelector && (
-        <div className="mt-2">
-          <label htmlFor="path-select" className="block text-sm font-medium text-gray-700">
-            配置する道:
-          </label>
-          <select
-            id="path-select"
-            value={selectedPathId === null ? 'null' : selectedPathId}
-            onChange={(e) => setSelectedPathId(e.target.value === 'null' ? null : e.target.value)}
-            className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
-          >
-            {/* 過去の道は「メインの道」にしか追加できない */}
-            <option value="null">メインの道 ( {currentAge} 歳までの道)</option>
-            {futurePaths.map(path => (
-              <option key={path.id} value={path.id}>
-                {path.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
     </form>
   );
 };

@@ -12,12 +12,12 @@ export interface Todo{
 /**
  * 特定の年齢に紐づくイベント（スケッチの「16歳」「20歳」のボタン）
  */
-export interface AgeEvent{
+export interface AgeEvent {
   id: string;
-  age: number; // イベントが発生する年齢
-  title: string; // イベント名（例: "大学受験", "就職"）
-  todos: Todo[]; // このイベントに関連するTodo
-  pathId: string | null; // ★追加: nullは「過去の道」。それ以外はFuturePathのID
+  age: number;
+  title: string;
+  todos: Todo[];
+  pathId: string | null;
 }
 
 /**
